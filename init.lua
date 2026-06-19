@@ -103,6 +103,15 @@ local horse = {
 	-- 1-block hop); the GAITS values below are sized to clear 1.3-2.4 nodes.
 	jump_height = 10,
 	stepheight = 1.1,    -- taller breed clears a little more
+	-- Fall protection. Forking from a plain mob table left these at the generic
+	-- mob_class defaults (safe 3.0 / mult 1.0); a clean gallop jump apexes at
+	-- ~13^2/64 = 2.6 nodes (just under 3.0, so no harm), but with the jump key
+	-- HELD the horse can re-contact terrain mid-ascent and fire a second jump
+	-- (physics.lua jump_timer is only 0.2s vs ~0.8s airtime), stacking to ~4
+	-- nodes and taking fall damage on landing. Match the canonical mobs_mc horse
+	-- so a tall/double hop is survivable.
+	_safe_fall_distance = 6.0,
+	fall_damage_multiplier = 0.5,
 	head_eye_height = 1.82,
 	can_ride_boat = false,
 	steer_class = "controls",
