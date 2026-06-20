@@ -733,6 +733,16 @@ local EAT_NODES   = {"mcl_flowers:tallgrass", "mcl_flowers:double_grass",
                      "mcl_flowers:fern", "mcl_flowers:double_fern"}
 local WATER_NODES = {"group:water"}
 
+-- Lead following (integrates with the "leads" mod by SilverSandstone, if present).
+-- A leashed horse TRAILS its leader (the player holding the rope) under its own
+-- power, instead of standing still until the rope goes taut and is physically
+-- dragged. The leads mod only applies a pull force once the gap exceeds its
+-- lead_length (default 8 nodes); keeping the horse within LEAD_STOP means the rope
+-- stays slack and the horse simply walks alongside.
+local LEAD_STOP  = 4.0    -- stop trailing once this close to the leader (nodes)
+local LEAD_BONUS = 0.6    -- follow speed = movement_speed * this (a relaxed pace)
+local LEAD_SCAN  = 0.5    -- re-scan the leads API this often (s) when none cached
+
 -- Lazily initialise the meters (new spawns and pre-Phase-2 horses).
 function horse:init_needs ()
 	if not self._hunger then self._hunger = START_NEED end
@@ -967,6 +977,74 @@ function horse:check_flee (pos, dtime)
 	return false
 end
 
+-- AI function: when this horse is the FOLLOWER of a lead (the "leads" mod), trail
+-- the leader (the player holding the rope) on its own, so being led looks like the
+-- horse walking along rather than the rope physically dragging a stationary mob.
+-- Sits below flee/breeding (a spooked horse still bolts -- the rope may snap, which
+-- is fine) but above food-following/foraging/pacing, so a led horse heeds the
+-- player over grazing. The lead is cached via the _leads_lead_add/remove hooks for
+-- instant response and re-discovered periodically through the leads API (the mod
+-- relinks connectors on reload WITHOUT re-calling the hook, so the scan is what
+-- keeps a tied horse following after a server restart).
+function horse:check_lead (pos, dtime)
+	if not leads or self.driver or self.child then
+		self._leading = false
+		return false
+	end
+	self._lead_scan = (self._lead_scan or 0) - dtime
+	local lead = self._lead_obj
+	if not (lead and lead:get_pos ()) and self._lead_scan <= 0 then
+		self._lead_scan = LEAD_SCAN
+		lead = leads.find_connected_leads (self.object, false, true) ()
+		self._lead_obj = lead
+	end
+	if not (lead and lead:get_pos ()) then
+		self._leading = false
+		return false
+	end
+	local le = lead:get_luaentity ()
+	local leader = le and le.leader
+	local lpos = leader and leader:get_pos ()
+	-- No leader, or tied to a post (the leader is an immobile knot): don't actively
+	-- trail -- the rope still tethers the horse physically; let it idle/graze nearby.
+	if not lpos or leads.is_immobile (leader) then
+		self._leading = false
+		return false
+	end
+	if vector.distance (pos, lpos) <= LEAD_STOP then
+		if self._leading then
+			self._leading = false
+			self:halt_in_tracks ()
+			self:cancel_navigation ()
+			self:set_animation ("stand")
+		end
+		return false
+	end
+	-- go_to_stupidly continuously re-steers toward the (moving) leader -- the same
+	-- primitive normal food-following uses -- so it tracks smoothly without re-pathing.
+	self:go_to_stupidly (lpos, LEAD_BONUS)
+	self._leading = true
+	self._grazing = false        -- abandon any graze in progress to heed the lead
+	return "leading"
+end
+
+-- The leads mod calls these on the connector entity when a lead is attached or
+-- removed; the args are the lead's luaentity and whether THIS horse is the leader.
+-- We only care when the horse is the FOLLOWER (is_leader == false): cache/clear the
+-- lead object so check_lead reacts immediately (the periodic scan is the fallback).
+function horse:_leads_lead_add (lead, is_leader)
+	if not is_leader then
+		self._lead_obj = lead and lead.object
+	end
+end
+
+function horse:_leads_lead_remove (lead, is_leader)
+	if not is_leader then
+		self._lead_obj = nil
+		self._leading = false
+	end
+end
+
 function horse:on_rightclick (clicker)
 	if not clicker or not clicker:is_player() then return end
 	local stack = clicker:get_wielded_item ()
@@ -1137,6 +1215,7 @@ end
 horse.ai_functions = {
 	horse.check_flee,           -- our canter-away flee (replaces check_frightened)
 	mob_class.check_breeding,
+	horse.check_lead,           -- trail the player when leashed ("leads" mod)
 	mob_class.check_following,
 	horse.check_forage,
 	mob_class.check_pace,
