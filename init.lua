@@ -2096,42 +2096,58 @@ core.register_craftitem ("edoras_horse:knight_horse_armor", {
 	groups = { horse_armor = 58 },
 })
 
--- Drop the knight armor into existing Mineclonia loot pools without editing any
--- game file: mcl_structures keeps each structure's loot in the live table
--- mcl_structures.registered_structures[name].loot, which is read at mapgen time,
--- so appending an entry now takes effect for every later-generated chest. We walk
--- each target structure's loot, find every pool that has an `items` list, and add
--- one weighted knight entry. Dungeon/mineshaft loot lives in module-private locals
--- (mcl_dungeons / tsm_railcorridors) we cannot reach this way -- see note to user.
+-- Drop the knight armor into loot WITHOUT editing any game file. Mineclonia keeps
+-- most loot tables in module-private locals (mcl_dungeons, tsm_railcorridors, and
+-- ALL of the ersatz mcl_levelgen structures), unreachable from a mod -- and which
+-- system is even active depends on the world's mapgen settings. So instead of
+-- chasing per-structure tables, we wrap the ONE chokepoint every loot system funnels
+-- through: `mcl_loot.get_loot` (get_multi_loot calls it per pool; structure/dungeon/
+-- mineshaft/levelgen code all route through it). The first time a loot pool that
+-- already offers vanilla horse armor is rolled, we append a knight-armor entry to it
+-- (as rare as the diamond armor in that same pool, else weight 1). Net effect: knight
+-- drops wherever vanilla horse armor can -- temples, dungeons, mineshafts, strongholds,
+-- end cities -- under both mcl_structures and mcl_levelgen, no game edits, no reliance
+-- on private registries or structure names.
 core.register_on_mods_loaded (function ()
-	if not (mcl_structures and mcl_structures.registered_structures) then
-		core.log ("warning", "[edoras_horse] mcl_structures absent -- knight armor "
+	if not (mcl_loot and mcl_loot.get_loot) then
+		core.log ("warning", "[edoras_horse] mcl_loot.get_loot absent -- knight armor "
 			.. "registered but NOT added to any loot")
 		return
 	end
-	local KNIGHT_LOOT = { itemstring = "edoras_horse:knight_horse_armor", weight = 1 }
-	-- desert/jungle temples + the underwater ocean ruin treasure ("ocean_temple").
-	local targets = { "desert_temple", "jungle_temple", "ocean_temple" }
-	local added = 0
-	for _, name in ipairs (targets) do
-		local def = mcl_structures.registered_structures[name]
-		if def and def.loot then
-			-- loot = { [chest_node] = { pool, pool, ... } }; each pool has .items.
-			for _, pools in pairs (def.loot) do
-				for _, pool in pairs (pools) do
-					if type (pool) == "table" and type (pool.items) == "table" then
-						pool.items[#pool.items + 1] = table.copy (KNIGHT_LOOT)
-						added = added + 1
+	local KNIGHT = "edoras_horse:knight_horse_armor"
+	-- Scan a pool's items: returns (has_vanilla_horse_armor, diamond_armor_weight).
+	local function armor_in (items)
+		local found, diamond_w
+		for _, e in ipairs (items) do
+			local n = e.itemstring
+			if n then
+				n = n:gsub (" .*$", "")           -- drop any count suffix
+				if n:find ("^mcl_mobitems:.*_horse_armor$") then
+					found = true
+					if n == "mcl_mobitems:diamond_horse_armor" then
+						diamond_w = e.weight or 1
 					end
 				end
 			end
-		else
-			core.log ("warning", "[edoras_horse] loot target '" .. name
-				.. "' not found -- skipped")
 		end
+		return found, diamond_w
 	end
-	core.log ("action", "[edoras_horse] knight armor added to " .. added
-		.. " loot pool(s)")
+	local orig_get_loot = mcl_loot.get_loot
+	mcl_loot.get_loot = function (pool, pr)
+		-- Augment each pool once (marker also stops us rescanning armor-free pools).
+		if type (pool) == "table" and type (pool.items) == "table"
+			and not pool._edoras_knight_added then
+			pool._edoras_knight_added = true
+			local found, diamond_w = armor_in (pool.items)
+			if found then
+				pool.items[#pool.items + 1] =
+					{ itemstring = KNIGHT, weight = diamond_w or 1 }
+			end
+		end
+		return orig_get_loot (pool, pr)
+	end
+	core.log ("action", "[edoras_horse] knight armor loot hook installed "
+		.. "(adds to any pool offering vanilla horse armor)")
 end)
 
 ------------------------------------------------------------------------
