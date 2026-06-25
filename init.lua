@@ -2165,3 +2165,118 @@ else
 	core.log("warning",
 		"[edoras_horse] mobs_mc.animal_spawner unavailable -- NO wild spawner registered")
 end
+
+------------------------------------------------------------------------
+-- Potion of the Mearas: turns a TAMED vanilla horse (mobs_mc:horse) into an
+-- Edoras horse, so a player can upgrade a horse they already raised instead of
+-- hunting for a wild Edoras spawn. **Sneak + right-click** the tamed horse while
+-- holding the potion to apply it; its saddle and/or armor (and its tame/owner)
+-- carry over to the new Edoras horse. Recipe:
+--   1. crafting grid : Mearas Dye (sugar / golden carrots / golden apple / white
+--                       dye -- see the recipe below)
+--   2. brewing stand  : Mearas Dye + Water Bottles -> Potion(s) of the Mearas
+-- All optional: the mod still loads if mcl_potions or the recipe items are absent.
+------------------------------------------------------------------------
+
+-- The dye is a cheap craftitem, always registered (harmless even without the brew).
+core.register_craftitem("edoras_horse:mearas_dye", {
+	description = S("Mearas Dye"),
+	_doc_items_longdesc = S("A pale-gold pigment of horse-charming foods. Brew it "
+		.. "with water bottles to make a Potion of the Mearas."),
+	inventory_image = "edoras_horse_mearas_dye.png",
+})
+
+-- Crafted from the foods that gentle a horse:
+--   sugar        | white dye    | sugar
+--   golden carrot| golden apple | golden carrot
+--   sugar        | white dye    | sugar
+core.register_craft({
+	output = "edoras_horse:mearas_dye",
+	recipe = {
+		{"mcl_core:sugar",                "mcl_dyes:white",   "mcl_core:sugar"},
+		{"mcl_farming:carrot_item_gold",  "mcl_core:apple_gold", "mcl_farming:carrot_item_gold"},
+		{"mcl_core:sugar",                "mcl_dyes:white",   "mcl_core:sugar"},
+	},
+})
+
+-- The brew + the apply-to-horse interaction (needs mcl_potions).
+if mcl_potions then
+	mcl_potions.register_potion ({
+		name = "mearas",
+		desc_suffix = "of the Mearas",
+		_tt = S("Sneak + use on a tamed horse to make it an Edoras horse"),
+		_longdesc = S("Sneak and use this on a tamed horse to make it one of the "
+			.. "Mearas -- an Edoras horse. Any saddle or armor it wears carries over. "
+			.. "A wild (untamed) horse must be tamed first."),
+		color = "#e8ba4a",
+		drinkable = false,       -- applied to a horse, not drunk
+		has_splash = false,
+		has_lingering = false,
+		has_arrow = false,
+		uses_level = false,
+	})
+
+	-- Water Bottle + Mearas Dye -> Potion of the Mearas.
+	mcl_potions.register_water_brew ("edoras_horse:mearas_dye", "edoras_horse:mearas")
+
+	-- Sneak + right-click a TAMED vanilla horse with the potion to convert it,
+	-- inheriting its saddle/armor and tame/owner. mcl_mobs registers a mob's
+	-- on_rightclick as a plain field on the entity def, so we wrap it (after all
+	-- mods load, when mobs_mc:horse exists) and intercept before vanilla handling.
+	local function try_mearas_convert (self, clicker)
+		if not (clicker and clicker:is_player ()) then return false end
+		if not clicker:get_player_control ().sneak then return false end
+		local stack = clicker:get_wielded_item ()
+		if stack:get_name () ~= "edoras_horse:mearas" then return false end
+		local name = clicker:get_player_name ()
+		if not self.tamed then
+			core.chat_send_player (name,
+				S("This horse must be tamed before it can become a Mearas."))
+			return true                      -- handled: don't fall through to vanilla
+		end
+		local pos = self.object:get_pos ()
+		-- Inherit tame/owner and any saddle/armor onto the new Edoras horse.
+		local sd = {
+			tamed = true,
+			owner = self.owner,
+			persistent = self.persistent,
+			saddle = (self._saddle and self._saddle ~= "") and "yes" or "no",
+			_armor = (self._horse_armor_stack and self._horse_armor_stack ~= "")
+				and self._horse_armor_stack or "",
+			health = self.health,
+		}
+		if self.replace_with then
+			self:replace_with ("edoras_horse:horse", false, sd)
+		else
+			if pos then core.add_entity (pos, "edoras_horse:horse", core.serialize (sd)) end
+			self.object:remove ()
+		end
+		if pos then
+			mcl_mobs.effect ({x = pos.x, y = pos.y + 0.7, z = pos.z},
+				8, "heart.png", 2, 4, 2.0, 0.1)
+		end
+		-- Consume one potion, hand back an empty bottle.
+		if not core.is_creative_enabled (name) then
+			stack:take_item ()
+			clicker:set_wielded_item (stack)
+			local bottle = ItemStack ("mcl_potions:glass_bottle")
+			local inv = clicker:get_inventory ()
+			if inv and inv:room_for_item ("main", bottle) then
+				inv:add_item ("main", bottle)
+			elseif pos then
+				core.add_item (pos, bottle)
+			end
+		end
+		return true
+	end
+
+	core.register_on_mods_loaded (function ()
+		local def = core.registered_entities["mobs_mc:horse"]
+		if not def then return end
+		local orig = def.on_rightclick
+		def.on_rightclick = function (self, clicker)
+			if try_mearas_convert (self, clicker) then return end
+			if orig then return orig (self, clicker) end
+		end
+	end)
+end

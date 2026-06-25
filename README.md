@@ -42,6 +42,10 @@ coat textures on an upscaled copy of the canonical Mineclonia horse mesh.
 * **Breeding** — feed two tamed horses to breed a persistent foal.
 * **Lead-following** — with the optional `leads` mod, a leashed horse trails the
   player under its own power instead of being dragged.
+* **Potion of the Mearas** — a brewed potion that converts a **tamed** vanilla
+  horse (`mobs_mc:horse`) into an Edoras horse, so you can upgrade one you already
+  raised instead of waiting for a wild Edoras spawn. Any saddle/armor it wears (and
+  its tame/owner) carry over. Requires the optional `mcl_potions`.
 * **Reduced fall damage** — the heavier breed takes half fall damage.
 * **Natural spawning** — populates Plains and Savanna (requires `mobs_mc`).
 
@@ -100,6 +104,24 @@ appearance persists across world reloads. In creative mode no dye is consumed.
 [carpet][carpet][carpet]
 ```
 
+## Potion of the Mearas recipe
+
+Needs `mcl_potions`. Craft the dye from horse-charming foods, then brew it:
+
+1. **Craft** the **Mearas Dye** on a crafting table:
+
+   ```
+   [sugar]       [white dye]    [sugar]
+   [gold carrot] [golden apple] [gold carrot]
+   [sugar]       [white dye]    [sugar]
+   ```
+
+2. **Brew** in a brewing stand: `Mearas Dye` + Water Bottles → **Potion of the Mearas**
+
+Then **sneak + use** the potion on a **tamed** vanilla horse to turn it into an
+Edoras horse. Its saddle and armor (and tame/owner) carry over. An untamed horse
+must be tamed first.
+
 ## Installation
 
 1. Copy the `edoras_horse` folder into your Mineclonia `mods/` directory.
@@ -111,9 +133,11 @@ Get a horse via the creative spawn egg, or wait for one to spawn in grassland.
 
 * **Required:** `mcl_mobs` (core Mineclonia mob framework).
 * **Optional:**
-  * `mobs_mc` — natural spawners.
+  * `mobs_mc` — natural spawners + the vanilla horse the conversion potion targets.
   * `mcl_formspec` — gear-panel slot backgrounds.
   * `leads` — lead-following.
+  * `mcl_potions` + `mcl_core` + `mcl_farming` + `mcl_dyes` — the Potion of the
+    Mearas and its recipe.
 
   Recolouring uses redstone (`mcl_redstone`) and lapis (`mcl_core`); all are
   present in any normal Mineclonia install. The mod loads and runs without any
