@@ -61,6 +61,19 @@ for b = 1, #horse_base do
 	end
 end
 
+-- Distinct marking overlays to cycle through when re-skinning a horse with
+-- redstone (see horse:cycle_markings). The transparent overlay is dropped: it is
+-- only a spawn-weighting duplicate of "none", so it'd show as a wasted "no
+-- change" step. cycle_index maps an overlay filename ("" for none) -> its slot.
+local marking_cycle = {}
+local cycle_index = {}
+for _, m in ipairs (horse_markings) do
+	if m ~= "edoras_horse_transparent.png" and not cycle_index[m] then
+		marking_cycle[#marking_cycle + 1] = m
+		cycle_index[m] = #marking_cycle
+	end
+end
+
 local horse = {
 	description = S("Edoras Horse"),
 	type = "animal",
@@ -230,6 +243,26 @@ function horse:refresh_textures ()
 	}
 	self.base_texture = tex
 	self:set_textures (tex)
+end
+
+-- Re-skin: swap the marking overlay for the next one in marking_cycle, keeping
+-- the base coat colour. The new coat is written through _naked_fur, so it flows
+-- through refresh_textures (preserving any saddle/armor/bag overlays) and the
+-- updated base_texture persists in staticdata across reloads. Returns the new
+-- overlay filename ("" for none) for caller feedback.
+function horse:cycle_markings ()
+	local fur = self._naked_fur or (self.base_texture and self.base_texture[2])
+	-- base coat = everything before the first overlay; current overlay = the last.
+	local base = fur and fur:match ("^[^%^]+") or horse_base[1]
+	local overlay = fur and fur:match ("%^([^%^]+)$") or ""
+	local pos = (cycle_index[overlay] or 1) % #marking_cycle + 1
+	local marking = marking_cycle[pos]
+	self._naked_fur = (marking ~= "") and (base .. "^" .. marking) or base
+	self:refresh_textures ()
+	core.sound_play ("mcl_armor_equip_leather", {
+		gain = 0.5, max_hear_distance = 8, pos = self.object:get_pos (),
+	}, true)
+	return marking
 end
 
 -- Equip / remove. These do not move items; callers handle item transfer.
@@ -1425,6 +1458,19 @@ function horse:on_rightclick (clicker)
 					core.add_item (clicker:get_pos (), empty)
 				end
 			end
+		end
+		return
+	end
+
+	-- Sneak + right-click with redstone dust re-skins a tamed horse: cycle to the
+	-- next marking overlay (snowflake, sooty, paint, stockings, none...) on the
+	-- current coat, consuming one dust each use.
+	if item_name == "mcl_redstone:redstone" and clicker:get_player_control ().sneak
+		and self.tamed and not self.driver and not self.child then
+		self:cycle_markings ()
+		if not creative then
+			stack:take_item ()
+			clicker:set_wielded_item (stack)
 		end
 		return
 	end
