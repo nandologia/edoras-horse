@@ -92,6 +92,60 @@ GRAZE_HEAD_PITCH = math.radians(-46.0)
 GRAZE_MUNCH_AMP  = math.radians(3.0)   # gentle chewing nod on the head
 GRAZE_MUNCH_FREQ = 3                   # chews per loop (integer -> no seam pop)
 
+# ---- buck (rodeo) ----------------------------------------------------------
+# A real bronco buck (NOT a see-saw): the head stays LOW throughout while the
+# HINDQUARTERS heave high. Two overlapping beats of sin(2*pi*u):
+#   GATHER (rear, peak u=0.25): forelegs raise up & forward, body gathers slightly,
+#     head stays low. A small wind-up, not a tall rear.
+#   PLUNGE (buck, peak u=0.75): drop onto the forelegs (they reach forward to land),
+#     body pitches nose-DOWN HARD *and lifts* (BUCK_PLUNGE_RISE) so the rear end flies
+#     up while the forefeet stay above ground, hind legs kick out high behind. This is
+#     the big, dominant beat. The head/neck stay pinned LOW (grazing carriage) the
+#     whole time, never tossed up.
+# rear/buck are the two non-overlapping half-waves so the poses sum. The mob code
+# hops the whole horse in place. Signs may need flipping in-game. A couple extra
+# frames (30) smooth the action. b3d keyframes 260-290 -> Luanti 259-289.
+BUCK_BEG, BUCK_LEN = 260, 30
+# Body tilt about X: a SMALL nose-up gather, then a BIG nose-down plunge (rear end
+# high). Kept asymmetric on purpose so it reads as a buck, not a see-saw.
+BUCK_GATHER_PITCH = math.radians(7.0)
+BUCK_PLUNGE_PITCH = math.radians(40.0)
+BUCK_REAR_RISE    = 0.08               # slight body lift in the gather
+# Raise the whole body during the plunge so the FRONT legs don't punch underground.
+# The plunge pitches nose-down about the body origin, and the front leg hips sit
+# ~4.4 model-units forward of it, so the front feet would drop ~4.4*sin(40deg)~=2.8
+# units. Lifting the body the same amount keeps the front feet at ground level and
+# throws the hindquarters even higher (a real buck pivots about the planted forefeet).
+# Tune in-game: lower if the horse floats, raise if the forefeet still sink.
+BUCK_PLUNGE_RISE  = 2.5
+# Forelegs: swing up & forward in the gather (-=forward on the -X leg axis); reach
+# forward (less, straighter) to land on during the plunge.
+BUCK_FRONT_LIFT   = math.radians(50.0)
+BUCK_FRONT_KNEE   = math.radians(42.0) # foreleg knee curls while raised (gather only)
+BUCK_FRONT_FET    = math.radians(32.0)
+BUCK_FRONT_REACH  = math.radians(20.0) # forelegs reach forward to plant on landing
+# Hind legs: planted in the gather; thrown out behind HIGH in the plunge (+=back).
+BUCK_BACK_KICK    = math.radians(62.0)
+BUCK_BACK_FET     = math.radians(38.0)
+# Head/neck TOSS during the buck (user June 24 2026 -- supersedes the older "pin the
+# head low as if grazing" carriage). The head now PUMPS up and down with each buck:
+# it lifts UP through the rear/gather (peak u=0.25) and drops back DOWN through the
+# plunge/kick (peak u=0.75), keyed off the same sin(2pi*u) the legs use, so head and
+# hooves pulse together. BASE = mid carriage the toss swings about (negative = head
+# down/forward, same convention as NECK_REST/GRAZE); TOSS = swing amplitude (positive
+# = lifts up on the rear). This is baked into the buck clip's neck/head KEYS, so it
+# animates every variant skeleton and survives a re-run (no runtime bone override).
+# Tune in-game: bigger TOSS = bigger pump; if the head dips when it should rear, flip
+# the TOSS sign; raise BASE toward 0 for a generally higher head through the buck.
+BUCK_NECK_BASE = math.radians(-30.0)
+BUCK_NECK_TOSS = math.radians(28.0)   # neck raise reduced (was 38): swings -58 .. -2
+BUCK_HEAD_BASE = math.radians(-20.0)
+BUCK_HEAD_TOSS = math.radians(26.0)   # head follows, a touch less than the neck
+# As the neck rears UP (rear = the positive half of the buck wave), tuck the head
+# FORWARD from the neck (nose pitches down/forward off the neck line) instead of the
+# head just riding straight up with it. Scaled by the rear amount, 0 through the plunge.
+BUCK_HEAD_FWD  = math.radians(28.0)   # forward head pitch at the top of the rear (deg)
+
 LEGS = ["leg.front.left1", "leg.front.right1",
         "leg.back.left1",  "leg.back.right1"]
 
@@ -428,14 +482,57 @@ def main():
             keys.append([GRAZE_BEG + j, list(pos0), scl0, rot])
         return keys
 
+    def buck_keys(name):
+        # Rodeo: REAR (lean back, forelegs up/forward, head up) then PLUNGE (land on
+        # the forelegs, hindquarters up, hind legs thrown back, head down). rear and
+        # buck are the two half-waves of sin, so the poses sum without overlapping.
+        pos0, scl0, rot0 = rest[name]
+        seg = leg_segment(name)
+        keys = []
+        for j in range(BUCK_LEN + 1):
+            u = (j % BUCK_LEN) / BUCK_LEN
+            s = math.sin(2 * math.pi * u)
+            rear = max(0.0, s)                  # first half: rear up (peak u=0.25)
+            buck = max(0.0, -s)                 # second half: plunge (peak u=0.75)
+            pos, rot = list(pos0), rot0
+            if seg:
+                group, idx = seg
+                ref = leg[name[:-1] + "1"][0]
+                if group == "front":
+                    if idx == 1:                # up/forward in rear, reach to land in plunge
+                        a = -(BUCK_FRONT_LIFT * rear + BUCK_FRONT_REACH * buck)
+                        rot = qmul(rot0, axisangle(ref, a))
+                    elif idx == 2:              # knee curls only while tucked up (rear)
+                        rot = qmul(rot0, qx(KNEE_SIGN["front"] * BUCK_FRONT_KNEE * rear))
+                    else:
+                        rot = qmul(rot0, qx(FETLOCK_SIGN * BUCK_FRONT_FET * rear))
+                else:                           # hind: planted in rear, thrown back in plunge
+                    if idx == 1:
+                        rot = qmul(rot0, axisangle(ref, BUCK_BACK_KICK * buck))
+                    elif idx == 3:
+                        rot = qmul(rot0, qx(FETLOCK_SIGN * BUCK_BACK_FET * buck))
+            elif name == "body":
+                # Lift in the gather, then lift hard through the plunge so the
+                # nose-down pitch swings the rear up while the forefeet stay planted.
+                pos[1] = pos0[1] + BUCK_REAR_RISE * rear + BUCK_PLUNGE_RISE * buck
+                rot = qmul(rot0, qx(BUCK_GATHER_PITCH * rear - BUCK_PLUNGE_PITCH * buck))
+            elif name == "neck":            # toss UP in the rear, DOWN in the plunge
+                rot = qmul(rot0, qx(BUCK_NECK_BASE + BUCK_NECK_TOSS * s))
+            elif name == "head":            # follows the neck, + tucks forward as it rears up
+                rot = qmul(qx(BUCK_HEAD_BASE + BUCK_HEAD_TOSS * s
+                              - BUCK_HEAD_FWD * rear), rot0)
+            keys.append([BUCK_BEG + j, pos, scl0, rot])
+        return keys
+
     def appended(name):
         return (clip_keys(name, CANTER_BEG, CANTER_LEN, CANTER_CFG)
                 + clip_keys(name, GALLOP_BEG, GALLOP_LEN, GALLOP_CFG)
                 + idle_keys(name)
                 + clip_keys(name, TROT_BEG, TROT_LEN, TROT_CFG)
-                + graze_keys(name))
+                + graze_keys(name)
+                + buck_keys(name))
 
-    new_last = GRAZE_BEG + GRAZE_LEN
+    new_last = BUCK_BEG + BUCK_LEN
     counts = {"keys": 0, "anim": 0}
 
     def edit(node):
@@ -476,7 +573,8 @@ def main():
           f"  canter {CANTER_BEG-1}-{CANTER_BEG+CANTER_LEN-1}"
           f"  gallop {GALLOP_BEG-1}-{GALLOP_BEG+GALLOP_LEN-1}"
           f"  idle {IDLE_BEG-1}-{IDLE_BEG+IDLE_LEN-1}"
-          f"  graze {GRAZE_BEG-1}-{GRAZE_BEG+GRAZE_LEN-1}")
+          f"  graze {GRAZE_BEG-1}-{GRAZE_BEG+GRAZE_LEN-1}"
+          f"  buck {BUCK_BEG-1}-{BUCK_BEG+BUCK_LEN-1}")
 
 
 if __name__ == "__main__":
