@@ -39,6 +39,9 @@ coat textures on an upscaled copy of the canonical Mineclonia horse mesh.
 * **Recolouring** — a tamed horse can be reskinned by hand. Right-click it with
   **redstone dust** to cycle the **base coat**, or with **lapis lazuli** to cycle
   the **markings**. (See *Recolouring* below.)
+* **Dyed saddle pad** — a craftable cloth pad, coloured by the dye(s) used to make
+  it (one dye, or two blended — red + white = pink). Lay it on a tamed horse and it
+  drapes the back and upper flanks with colour, under the saddle. (See *Saddle pad*.)
 * **Breeding** — feed two tamed horses to breed a persistent foal.
 * **Lead-following** — with the optional `leads` mod, a leashed horse trails the
   player under its own power instead of being dragged.
@@ -70,9 +73,12 @@ On a horse **on the ground**:
 | Open the gear/inventory panel | **Sneak + right-click** |
 | Recolour the base coat | right-click with **redstone dust** |
 | Recolour the markings | right-click with **lapis lazuli** |
-| Saddle / armor / saddlebag | right-click with that item |
+| Saddle / armor / saddlebag / saddle pad | right-click with that item |
 | Feed / heal / breed | right-click with a follow food (wheat, sugar, apple, hay, carrot, golden apple/carrot) |
 | Water (refills thirst) | right-click with a **water bucket** |
+
+Remove the saddle, armor, bag, or pad by taking it out of the gear panel
+(**Sneak + right-click**).
 
 > **Note:** because redstone and lapis are intercepted to recolour the horse, you
 > **cannot mount it while holding redstone or lapis** — switch to an empty hand or
@@ -100,6 +106,26 @@ appearance persists across world reloads. In creative mode no dye is consumed.
 [leather][leather][leather]
 [carpet][carpet][carpet]
 ```
+
+## Saddle pad
+
+Craft a **saddle pad** shapelessly from **3 carpet + a dye** (any arrangement):
+
+```
+[carpet] [carpet] [carpet] [dye]
+```
+
+Add a **second dye** to blend a colour — e.g. **red + white = pink**:
+
+```
+[carpet] [carpet] [carpet] [dye] [dye]
+```
+
+The pad takes the average of the dye(s) you use, and that colour is stored on the
+item (so two differently-dyed pads don't stack). Right-click a **tamed** horse with
+the pad to lay it on — it drapes the back and upper flanks under the saddle.
+Remove it from the gear panel (Sneak + right-click). In creative no carpet/dye is
+consumed.
 
 ## Potion of the Mearas recipe
 
@@ -136,9 +162,10 @@ Get a horse via the creative spawn egg, or wait for one to spawn in grassland.
   * `mcl_potions` + `mcl_core` + `mcl_farming` + `mcl_dyes` — the Potion of the
     Mearas and its recipe.
 
-  Recolouring uses redstone (`mcl_redstone`) and lapis (`mcl_core`), which are
-  present in any normal Mineclonia install. The mod loads and runs without any
-  optional dependency — the related features just stay inactive.
+  Recolouring uses redstone (`mcl_redstone`) and lapis (`mcl_core`); the saddle
+  pad uses carpet and dyes (`mcl_dyes`). All are present in any normal Mineclonia
+  install. The mod loads and runs without any optional dependency — the related
+  features just stay inactive (an undyed pad simply renders white).
 
 No changes to Mineclonia's own files are required.
 
