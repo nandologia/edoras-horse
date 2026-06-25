@@ -74,6 +74,21 @@ for _, m in ipairs (horse_markings) do
 	end
 end
 
+-- Base coats to cycle through when recolouring with glowstone dust (see
+-- horse:cycle_coat). coat_index maps a base filename -> its slot.
+local coat_cycle = {}
+local coat_index = {}
+for _, b in ipairs (horse_base) do
+	if not coat_index[b] then
+		coat_cycle[#coat_cycle + 1] = b
+		coat_index[b] = #coat_cycle
+	end
+end
+
+-- Minimum seconds between re-skin steps: on_rightclick repeats while the button
+-- is held, so without this a single press would cycle (and spend) all the dust.
+local RESKIN_CD = 0.5
+
 local horse = {
 	description = S("Edoras Horse"),
 	type = "animal",
@@ -263,6 +278,25 @@ function horse:cycle_markings ()
 		gain = 0.5, max_hear_distance = 8, pos = self.object:get_pos (),
 	}, true)
 	return marking
+end
+
+-- Recolour: swap the base coat for the next one in coat_cycle, keeping the
+-- current marking overlay. Mirrors cycle_markings (writes through _naked_fur so
+-- saddle/armor/bag overlays survive and the new base_texture persists). Returns
+-- the new base coat filename.
+function horse:cycle_coat ()
+	local fur = self._naked_fur or (self.base_texture and self.base_texture[2])
+	-- base coat = everything before the first overlay; current overlay = the last.
+	local base = fur and fur:match ("^[^%^]+") or horse_base[1]
+	local overlay = fur and fur:match ("%^([^%^]+)$") or ""
+	local pos = (coat_index[base] or 1) % #coat_cycle + 1
+	local coat = coat_cycle[pos]
+	self._naked_fur = (overlay ~= "") and (coat .. "^" .. overlay) or coat
+	self:refresh_textures ()
+	core.sound_play ("mcl_armor_equip_leather", {
+		gain = 0.5, max_hear_distance = 8, pos = self.object:get_pos (),
+	}, true)
+	return coat
 end
 
 -- Equip / remove. These do not move items; callers handle item transfer.
@@ -1462,11 +1496,35 @@ function horse:on_rightclick (clicker)
 		return
 	end
 
-	-- Sneak + right-click with redstone dust re-skins a tamed horse: cycle to the
-	-- next marking overlay (snowflake, sooty, paint, stockings, none...) on the
-	-- current coat, consuming one dust each use.
-	if item_name == "mcl_redstone:redstone" and clicker:get_player_control ().sneak
+	-- Right-click with redstone dust recolours a tamed horse: cycle to the next
+	-- base coat (brown, dark brown, white, gray, black...), keeping the current
+	-- markings, one dust each use. No sneak needed -- holding redstone is itself
+	-- the "recolour" mode, so it intercepts the click before mounting (you can't
+	-- mount with redstone in hand). on_rightclick fires repeatedly while the
+	-- button is held, so debounce: one step (and one dust) per press, giving the
+	-- player time to see each coat before spending the next dust.
+	if item_name == "mcl_redstone:redstone"
 		and self.tamed and not self.driver and not self.child then
+		local now = core.get_us_time () / 1e6
+		if self._last_reskin and now - self._last_reskin < RESKIN_CD then return end
+		self._last_reskin = now
+		self:cycle_coat ()
+		if not creative then
+			stack:take_item ()
+			clicker:set_wielded_item (stack)
+		end
+		return
+	end
+
+	-- Right-click with lapis lazuli swaps the marking overlay on a tamed horse:
+	-- cycle to the next marking (snowflake, sooty, paint, stockings, none...),
+	-- keeping the current coat, one lapis per press (same no-sneak intercept and
+	-- debounce as the redstone recolour -- you can't mount with lapis in hand).
+	if item_name == "mcl_core:lapis"
+		and self.tamed and not self.driver and not self.child then
+		local now = core.get_us_time () / 1e6
+		if self._last_reskin and now - self._last_reskin < RESKIN_CD then return end
+		self._last_reskin = now
 		self:cycle_markings ()
 		if not creative then
 			stack:take_item ()
