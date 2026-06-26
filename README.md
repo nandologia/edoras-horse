@@ -47,6 +47,13 @@ coat textures on an upscaled copy of the canonical Mineclonia horse mesh.
 * **Breeding** — feed two tamed horses to breed a persistent foal.
 * **Lead-following** — with the optional `leads` mod, a leashed horse trails the
   player under its own power instead of being dragged.
+* **Gait & terrain sounds** — a ridden horse plays looping hoofbeats that change
+  with both its gait and the ground surface (dirt/grass, gravel, hard, sand);
+  idle horses whinny now and then (and once on taming), and a grazing horse makes
+  chewing sounds.
+* **Astride rider pose** — the rider sits properly astride (legs down each side,
+  not thrown forward like the default mount) and leans into a jockey crouch while
+  galloping.
 * **Potion of the Mearas** — a brewed potion that converts a **tamed** vanilla
   horse (`mobs_mc:horse`) into an Edoras horse, so you can upgrade one you already
   raised instead of waiting for a wild Edoras spawn. Any saddle/armor it wears (and
