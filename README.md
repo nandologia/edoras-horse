@@ -132,7 +132,10 @@ must be tamed first.
 1. Copy the `edoras_horse` folder into your Mineclonia `mods/` directory.
 2. Enable **Edoras Horse** in your world's mod configuration.
 
-Get a horse via the creative spawn egg, or wait for one to spawn in grassland.
+Get a horse one of three ways: wait for one to spawn naturally in grassland
+(Plains/Savanna), use the creative spawn egg, or — in survival — use a **Potion of
+the Mearas** on a tamed vanilla horse to convert it into an Edoras horse (see
+*Potion of the Mearas recipe* below).
 
 ## Dependencies
 
