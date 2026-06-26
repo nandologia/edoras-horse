@@ -36,6 +36,11 @@ coat textures on an upscaled copy of the canonical Mineclonia horse mesh.
   craftable **saddlebag** that unlocks an on-horse storage compartment. Sneak +
   right-click (empty/other item in hand) opens the gear panel with a live
   condition readout.
+* **Knight Horse Armor** — a rare, **loot-only** barding (no recipe) with
+  protection just shy of diamond. It turns up in the same chests as vanilla horse
+  armor — desert/jungle temples, dungeons, mineshafts, strongholds, end cities,
+  etc. (as rare there as diamond armor). Equips in the armor slot like any horse
+  armor.
 * **Recolouring** — a tamed horse can be reskinned by hand. Right-click it with
   **redstone dust** to cycle the **base coat**, or with **lapis lazuli** to cycle
   the **markings**. (See *Recolouring* below.)

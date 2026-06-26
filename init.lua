@@ -62,7 +62,7 @@ for b = 1, #horse_base do
 end
 
 -- Distinct marking overlays to cycle through when re-skinning a horse with
--- redstone (see horse:cycle_markings). The transparent overlay is dropped: it is
+-- lapis lazuli (see horse:cycle_markings). The transparent overlay is dropped: it is
 -- only a spawn-weighting duplicate of "none", so it'd show as a wasted "no
 -- change" step. cycle_index maps an overlay filename ("" for none) -> its slot.
 local marking_cycle = {}
@@ -74,7 +74,7 @@ for _, m in ipairs (horse_markings) do
 	end
 end
 
--- Base coats to cycle through when recolouring with glowstone dust (see
+-- Base coats to cycle through when recolouring with redstone dust (see
 -- horse:cycle_coat). coat_index maps a base filename -> its slot.
 local coat_cycle = {}
 local coat_index = {}
