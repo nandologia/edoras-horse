@@ -2159,24 +2159,22 @@ end)
 ------------------------------------------------------------------------
 
 if mobs_mc and mobs_mc.animal_spawner then
-	-- Generous weights so herds are easy to find: vanilla horse was 5, and
-	-- sheep/pig/chicken sit at 10-12, so 30 makes Edoras horses a common
-	-- Plains animal.
 	mcl_mobs.register_spawner(table.merge(mobs_mc.animal_spawner, {
 		name = "edoras_horse:horse",
-		weight = 30,
+		weight = 5,
 		pack_min = 2,
 		pack_max = 6,
-		biomes = {"Plains", "SunflowerPlains"},
+		biomes = {"Plains", "SunflowerPlains", "SnowyPlains", "IceSpikes"},
 	}))
 	mcl_mobs.register_spawner(table.merge(mobs_mc.animal_spawner, {
 		name = "edoras_horse:horse",
-		weight = 12,
+		weight = 1,
 		pack_min = 2,
 		pack_max = 6,
-		biomes = {"#is_savannah"},
+		biomes = {"Savannah", "SavannahPlateau", "WindsweptSavannah"},
 	}))
-	core.log("action", "[edoras_horse] registered wild spawners (Plains w=30, Savanna w=12)")
+	core.log("action", "[edoras_horse] registered wild spawners"
+		.. " (Plains/Snowy w=5, Savanna w=1)")
 else
 	core.log("warning",
 		"[edoras_horse] mobs_mc.animal_spawner unavailable -- NO wild spawner registered")
